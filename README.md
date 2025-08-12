@@ -22,6 +22,8 @@
 A secure password manager that stores, encrypts, and shares your passwords with advanced security features and smart sharing capabilities.
 
 ### Why This Exists
+> 💬 *"We have 100+ online accounts but can't remember secure passwords. One master password fixes everything."*
+
 Most people use weak passwords like "123456" or reuse the same password everywhere. This creates massive security risks. Our solution: one strong master password protects everything else.
 
 ## ✨ Core Features
