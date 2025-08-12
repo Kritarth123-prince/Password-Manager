@@ -194,6 +194,13 @@ Notes: Personal account, 2FA enabled
 - **Family Emergency**: Trusted family member access
 - **Business Continuity**: Team access to critical accounts
 
+## 📱 Screenshots
+
+![Login Screen](images/login.png)
+![Dashboard](images/dashboard.png)
+![Password Management](images/passwords.png)
+![Sharing Feature](images/sharing.png)
+
 ## 🤝 Contributing
 
 ### How to Help
