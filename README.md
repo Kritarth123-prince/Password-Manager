@@ -67,17 +67,6 @@ Master Pass → Hash+Salt → Timestamp → Secure Storage
 4. **Timestamp**: Current time used as additional key
 5. **Storage**: Final encrypted data saved
 
-### Database Schema
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| Website | VARCHAR | URL or service name |
-| Username | VARCHAR | Login username |
-| Email | VARCHAR | Account email |
-| Password | ENCRYPTED | Actual password (encrypted) |
-| Category | VARCHAR | Organization type |
-| Notes | TEXT | Additional information |
-
 ### Sharing Mechanism
 
 **Link Creation Process:**
