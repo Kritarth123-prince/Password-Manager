@@ -238,6 +238,10 @@ Notes: Personal account, 2FA enabled
 - **Transmission**: HTTPS only
 - **Access**: Role-based permissions
 
+## 📜 License
+
+MIT License - Use freely, modify, share. See [LICENSE](LICENSE) file.
+
 ---
 
 <div align="center">
