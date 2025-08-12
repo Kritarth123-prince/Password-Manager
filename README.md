@@ -80,7 +80,7 @@ Master Pass → Hash+Salt → Timestamp → Secure Storage
 - Updates shared password automatically
 - Notifies recipients of change
 
-## 📖 Documentation
+### 📖 Documentation
 
 For full project details, setup instructions, and feature overview, check out the  
 👉 [Well Documentation on Notion][![Documentation](https://img.shields.io/badge/Notion-Documentation-blueviolet?style=for-the-badge&logo=notion)](https://sleepy-lyric-28b.notion.site/Password-Manager-24d05f803ca580e7b954dd4251df59d9)
