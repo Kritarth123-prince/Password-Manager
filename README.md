@@ -197,9 +197,9 @@ Notes: Personal account, 2FA enabled
 ## 📱 Screenshots
 
 ![Login Screen](images/login.png)
-![Dashboard](images/dashboard.png)
-![Password Management](images/passwords.png)
-![Sharing Feature](images/sharing.png)
+![Dashboard](images/main%20view.png)
+![Password Management](images/ss-add-pass.png)
+![Sharing Feature](images/shared%20pass.png)
 
 ## 🤝 Contributing
 
