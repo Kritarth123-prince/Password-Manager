@@ -44,7 +44,7 @@ Most people use weak passwords like "123456" or reuse the same password everywhe
 
 ### 🔗 Smart Sharing
 - **Link Generation**: Create secure, time-limited sharing URLs
-- **Email Sharing**: Send passwords directly to recipients
+- **Email Sharing**: Send passwords directly to recipients *(Taking a Breather)*
 - **Auto-Sync**: Shared passwords update when you change them
 - **Expiry System**: Links automatically become invalid
 - **Revoke Control**: Cancel sharing access instantly
