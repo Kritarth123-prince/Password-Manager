@@ -1,121 +1,106 @@
-<?php
+ <?php
 session_start();
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
 require 'db_config.php';
+
+function decryptPassword($encrypted_password, $created_at) {
+    $encryption_key = $created_at;
+    $iv = substr(md5($encryption_key), 0, 16);
+    return openssl_decrypt($encrypted_password, 'AES-256-CBC', $encryption_key, 0, $iv);
+}
+
 $user_id = $_SESSION['user_id'];
 
 $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $limit = 25;
 $offset = ($page - 1) * $limit;
 
-require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/PHPMailer.php';
-require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/SMTP.php';
-require_once __DIR__ . '/../vendor/phpmailer/phpmailer/src/Exception.php';
+// if (isset($_POST['action']) && $_POST['action'] === 'share') {
+//     header('Content-Type: application/json; charset=utf-8');
+//     $password_id = isset($_POST['password_id']) ? intval($_POST['password_id']) : 0;
+//     $email = isset($_POST['email']) ? trim($_POST['email']) : '';
+//     $share_note = isset($_POST['share_note']) ? trim($_POST['share_note']) : '';
+//     $expire_raw = isset($_POST['expire']) ? $_POST['expire'] : '+1 hour';
 
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+//     $check = $db->prepare("SELECT token FROM shared_passwords WHERE password_id = ? AND user_id = ?");
+//     $check->bind_param("ii", $password_id, $user_id);
+//     $check->execute();
+//     $existing = $check->get_result()->fetch_assoc();
 
-// Log file paths
-$errorLogFile   = __DIR__ . '/mail_error.log';
-$successLogFile = __DIR__ . '/mail_success.log';
+//     if ($existing) {
+//         $share_link = "https://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . "/share.php?t=" . $existing['token'];
+//         echo json_encode(['success' => true, 'link' => $share_link, 'existing' => true]);
+//         exit;
+//     }
+
+//     try {
+//         $token = bin2hex(random_bytes(16));
+//     } catch (\Exception $e) {
+//         $token = bin2hex(openssl_random_pseudo_bytes(16));
+//     }
+
+//     // $expire = date('Y-m-d H:i:s', strtotime($expire_raw));
+//     date_default_timezone_set('UTC');
+//     $expire = date('Y-m-d H:i:s', strtotime($expire_raw));
+//     $stmt = $db->prepare("INSERT INTO shared_passwords (token, password_id, user_id, email, note, expires_at) VALUES (?, ?, ?, ?, ?, ?)");
+//     $stmt->bind_param("siisss", $token, $password_id, $user_id, $email, $share_note, $expire);
+
+//     if ($stmt->execute()) {
+//         $share_link = "https://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . "/share.php?t=" . $token;
+//         echo json_encode(['success' => true, 'link' => $share_link]);
+//     } else {
+//         echo json_encode(['success' => false, 'error' => 'db_insert_failed']);
+//     }
+//     exit;
+// }
 
 if (isset($_POST['action']) && $_POST['action'] === 'share') {
-    header('Content-Type: application/json; charset=utf-8');
-    $password_id = isset($_POST['password_id']) ? intval($_POST['password_id']) : 0;
-    $email = isset($_POST['email']) ? trim($_POST['email']) : '';
-    $share_note = isset($_POST['share_note']) ? trim($_POST['share_note']) : '';
-    $expire_raw = isset($_POST['expire']) ? $_POST['expire'] : '+1 hour';
+    header('Content-Type: application/json');
+    $password_id = intval($_POST['password_id']);
+    $share_note = trim($_POST['share_note'] ?? '');
+    $expire_hours = intval($_POST['expire'] ?? 1);
 
-    $check = $db->prepare("SELECT token FROM shared_passwords WHERE password_id = ? AND user_id = ?");
-    $check->bind_param("ii", $password_id, $user_id);
-    $check->execute();
-    $existing = $check->get_result()->fetch_assoc();
-
-    if ($existing) {
-        $share_link = "https://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . "/share.php?t=" . $existing['token'];
-        echo json_encode(['success' => true, 'link' => $share_link, 'existing' => true]);
-        exit;
-    }
-
-    try {
-        $token = bin2hex(random_bytes(16));
-    } catch (\Exception $e) {
-        $token = bin2hex(openssl_random_pseudo_bytes(16));
-    }
-
-    $expire = date('Y-m-d H:i:s', strtotime($expire_raw));
-    $stmt = $db->prepare("INSERT INTO shared_passwords (token, password_id, user_id, email, note, expires_at) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("siisss", $token, $password_id, $user_id, $email, $share_note, $expire);
+    // Set IST timezone
+    date_default_timezone_set('Asia/Kolkata');
+    
+    $token = bin2hex(random_bytes(16));
+    $expire = date('Y-m-d H:i:s', time() + ($expire_hours * 3600));
+    
+    $stmt = $db->prepare("INSERT INTO shared_passwords (token, password_id, user_id, note, expires_at) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("siiss", $token, $password_id, $user_id, $share_note, $expire);
 
     if ($stmt->execute()) {
-        $share_link = "https://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . "/share.php?t=" . $token;
-
-        // === SEND EMAIL IF EMAIL IS PROVIDED ===
-        if (!empty($email)) {
-            $mail = new PHPMailer(true);
-            $mail->CharSet = 'UTF-8'; // ensures proper Unicode/emoji support
-            $mail->Encoding = 'base64';
-            try {
-                // SMTP setup
-                $mail->isSMTP();
-                $mail->Host = $smtp_host;
-                $mail->SMTPAuth = true;
-                $mail->Username = $email_sender;
-                $mail->Password = $email_password;
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->Port = $smtp_port;
-
-                // Recipients
-                $mail->setFrom($email_sender, 'Password Manager');
-                $mail->addAddress($email);
-
-                // Email content (Stylish)
-                $mail->isHTML(true);
-                $mail->Subject = '🔐 You’ve Received a Secure Password Link';
-                $mail->Body = '
-                    <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
-                        <div style="max-width: 600px; margin: auto; background: white; border-radius: 8px; overflow: hidden; border: 1px solid #ddd;">
-                            <div style="background-color: #2c3e50; color: white; padding: 15px; text-align: center;">
-                                <h2>🔐 Password Manager</h2>
-                            </div>
-                            <div style="padding: 20px; color: #333;">
-                                <p>Hello,</p>
-                                <p>' . nl2br(htmlspecialchars($share_note)) . '</p>
-                                <p>Click the secure link below to view the shared password:</p>
-                                <p style="text-align: center;">
-                                    <a href="' . $share_link . '" style="display: inline-block; padding: 10px 20px; background: #27ae60; color: white; text-decoration: none; border-radius: 5px;">View Password</a>
-                                </p>
-                                <p>This link will expire on <strong>' . $expire . '</strong>.</p>
-                            </div>
-                            <div style="background-color: #f1f1f1; padding: 10px; text-align: center; font-size: 12px; color: #666;">
-                                &copy; ' . date("Y") . ' Password Manager. All rights reserved.
-                            </div>
-                        </div>
-                    </div>
-                ';
-                $mail->AltBody = "Hello,\n\n" . $share_note . "\n\nLink: " . $share_link . "\nExpires on: " . $expire;
-
-                $mail->send();
-
-                // Log success
-                file_put_contents($successLogFile, "[" . date("Y-m-d H:i:s") . "] Mail sent to {$email} for password ID {$password_id}\n", FILE_APPEND);
-
-            } catch (Exception $e) {
-                // Log error
-                file_put_contents($errorLogFile, "[" . date("Y-m-d H:i:s") . "] Error sending mail to {$email}: {$mail->ErrorInfo}\n", FILE_APPEND);
-            }
-        }
-
-        echo json_encode(['success' => true, 'link' => $share_link]);
+        // $link = "http://" . $_SERVER['HTTP_HOST'] . "/share.php?t=" . $token;
+        $link = "http://" . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF'] . "/../share.php?t=" . $token;
+        echo json_encode(['success' => true, 'link' => $link]);
     } else {
-        echo json_encode(['success' => false, 'error' => 'db_insert_failed']);
+        echo json_encode(['success' => false]);
     }
     exit;
 }
 
+if (isset($_GET['export'])) {
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="passwords.csv"');
+    
+    $stmt = $db->prepare("SELECT * FROM data WHERE user_id=?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    echo "Website,Username,Email,Password,Category,Notes\n";
+    while ($row = $result->fetch_assoc()) {
+        $decrypted_password = decryptPassword($row['password'], $row['created_at']);
+        echo '"' . $row['website'] . '","' . $row['username'] . '","' . $row['email'] . '","' . $decrypted_password . '","' . $row['category'] . '","' . $row['notes'] . '"' . "\n";
+    }
+    exit;
+}
 
 if (isset($_POST['delete'])) {
     $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
@@ -154,14 +139,25 @@ $countRow = $countStmt->get_result()->fetch_assoc();
 $count = (int)$countRow['total'];
 $total_pages = max(1, ceil($count / $limit));
 
+// $shared_ids = [];
+// $shared_stmt = $db->prepare("SELECT password_id FROM shared_passwords WHERE user_id=? AND expires_at > NOW()");
+// // $shared_stmt = $db->prepare("SELECT password_id FROM shared_passwords WHERE user_id=? AND expires_at > UTC_TIMESTAMP()");
+// $shared_stmt->bind_param("i", $user_id);
+// $shared_stmt->execute();
+// $shared_result = $shared_stmt->get_result();
+// while ($shared_row = $shared_result->fetch_assoc()) {
+//     $shared_ids[] = $shared_row['password_id'];
+// }
+
 $shared_ids = [];
-$shared_stmt = $db->prepare("SELECT password_id FROM shared_passwords WHERE user_id=?");
+$shared_stmt = $db->prepare("SELECT password_id FROM shared_passwords WHERE user_id=? AND expires_at > NOW()");
 $shared_stmt->bind_param("i", $user_id);
 $shared_stmt->execute();
 $shared_result = $shared_stmt->get_result();
 while ($shared_row = $shared_result->fetch_assoc()) {
     $shared_ids[] = $shared_row['password_id'];
 }
+
 ?>
 <!DOCTYPE html>
 <html>
@@ -169,12 +165,14 @@ while ($shared_row = $shared_result->fetch_assoc()) {
     <meta charset="utf-8">
     <title>Password Manager 🔐</title>
     <link rel="icon" href="assets/icon.png" type="image/x-icon">
+    <script src="https://www.google.com/recaptcha/api.js?render=<?=$recaptcha_site_key?>"></script>
     <style>
         body{background:linear-gradient(45deg,#667eea,#764ba2);font-family:Arial;margin:0;padding:0;}
         .header{display:flex;justify-content:space-between;padding:20px;}
         .logout{background:#e74c3c;color:#fff;padding:8px 16px;border:none;border-radius:20px;text-decoration:none;}
         .add{background:#2ecc71;color:#fff;padding:8px 16px;border:none;border-radius:20px;text-decoration:none;}
         .export{background:#f39c12;color:#fff;padding:8px 16px;border:none;border-radius:20px;text-decoration:none;margin-right:10px;}
+        .profile{background:#9b59b6;color:#fff;padding:8px 16px;border:none;border-radius:50%;text-decoration:none;margin-right:10px;font-size:16px;}
         .search{padding:10px;border:none;border-radius:25px;width:300px;margin:20px auto;display:block;}
         table{width:95%;margin:auto;background:rgba(255,255,255,0.1);border-radius:10px;color:#fff;border-collapse:collapse;}
         th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.1);vertical-align:middle;}
@@ -193,6 +191,7 @@ while ($shared_row = $shared_result->fetch_assoc()) {
         .page-btn{background:#3498db;color:#fff;padding:8px 12px;margin:0 5px;border:none;border-radius:5px;text-decoration:none;cursor:pointer;}
         .page-btn.active{background:#2ecc71;}
         .left-group{display:flex;gap:10px;}
+        .right-group{display:flex;gap:10px;align-items:center;}
         .dm-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;}
         .dm-modal{background:#fff;color:#222;padding:18px;border-radius:10px;width:360px;box-sizing:border-box;}
         .dm-modal input,.dm-modal select,.dm-modal textarea{width:100%;padding:8px;margin:6px 0;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;}
@@ -207,7 +206,10 @@ while ($shared_row = $shared_result->fetch_assoc()) {
             <a href="save.php" class="add">➕ Add New</a>
             <a href="?export=1" class="export">📥 Export</a>
         </div>
-        <a href="logout.php" class="logout">Logout</a>
+        <div class="right-group">
+            <a href="profile.php?id=<?=$user_id?>" class="profile">👤</a>
+            <a href="logout.php" class="logout">Logout</a>
+        </div>
     </div>
 
     <input type="text" id="search" class="search" placeholder="🔍 Search anything..." onkeyup="doSearch()">
@@ -218,7 +220,7 @@ while ($shared_row = $shared_result->fetch_assoc()) {
         </tr>
         <tbody id="data">
         <?php
-        $stmt = $db->prepare("SELECT * FROM data WHERE user_id=? ORDER BY id DESC LIMIT ? OFFSET ?");
+        $stmt = $db->prepare("SELECT *, created_at FROM data WHERE user_id=? ORDER BY id DESC LIMIT ? OFFSET ?");
         $stmt->bind_param("iii", $user_id, $limit, $offset);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -226,12 +228,12 @@ while ($shared_row = $shared_result->fetch_assoc()) {
             $url = strpos($row['website'], 'http') === 0 ? $row['website'] : 'https://' . $row['website'];
             $is_shared = in_array($row['id'], $shared_ids);
             $id = (int)$row['id'];
-            $website = htmlspecialchars($row['website']);
-            $username = htmlspecialchars($row['username']);
-            $email = htmlspecialchars($row['email']);
-            $password = $row['password'];
-            $category = htmlspecialchars($row['category']);
-            $notes = htmlspecialchars($row['notes']);
+            $website = htmlspecialchars($row['website'] ?? '');
+            $username = htmlspecialchars($row['username'] ?? '');
+            $email = htmlspecialchars($row['email'] ?? '');
+            $password = decryptPassword($row['password'], $row['created_at']);
+            $category = htmlspecialchars($row['category'] ?? '');
+            $notes = htmlspecialchars($row['notes'] ?? '');
         ?>
         <tr id="r<?=$id?>">
             <td class="exp" onclick="expandCell('w<?=$id?>', event)">
@@ -458,67 +460,33 @@ while ($shared_row = $shared_result->fetch_assoc()) {
         overlay.className = 'dm-overlay';
         overlay.innerHTML = `
             <div class="dm-modal">
-                <h3 style="margin-top:0">Share Password</h3>
-                <input type="hidden" id="dm_share_id" value="${id}">
-                <input type="email" id="dm_share_email" placeholder="Email (optional)">
-                <textarea id="dm_share_note" rows="2" placeholder="Note (optional)"></textarea>
-                <select id="dm_share_expire">
-                    <option value="+30 minutes">30 Minutes</option>
-                    <option value="+1 hour" selected>1 Hour</option>
-                    <option value="+1 day">1 Day</option>
-                    <option value="+1 week">1 Week</option>
-                    <option value="+1 month">1 Month</option>
+                <h3>Share Password</h3>
+                <textarea id="note" rows="2" placeholder="Note (optional)"></textarea>
+                <select id="expire">
+                    <option value="1">1 Hour</option>
+                    <option value="24">1 Day</option>
+                    <option value="168">1 Week</option>
                 </select>
-                <div style="margin-top:10px;display:flex;gap:8px">
-                    <button id="dm_create_btn" style="flex:1;background:#2ecc71;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer">Create Link</button>
-                    <button id="dm_close_btn" style="flex:1;background:#e74c3c;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer">Cancel</button>
+                <div style="margin-top:10px">
+                    <button onclick="createShare(${id})" style="background:#2ecc71;color:#fff;border:none;padding:8px 15px;border-radius:5px">Create Link</button>
+                    <button onclick="this.closest('.dm-overlay').remove()" style="background:#e74c3c;color:#fff;border:none;padding:8px 15px;border-radius:5px">Cancel</button>
                 </div>
-                <div id="dm_result" style="margin-top:10px"></div>
+                <div id="result"></div>
             </div>`;
         document.body.appendChild(overlay);
+    }
 
-        overlay.querySelector('#dm_close_btn').addEventListener('click', () => overlay.remove());
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-        overlay.querySelector('#dm_create_btn').addEventListener('click', function () {
-            const btn = this;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="dm-spinner"></span>Creating...';
-            const pid = document.getElementById('dm_share_id').value;
-            const mail = document.getElementById('dm_share_email').value.trim();
-            const note = document.getElementById('dm_share_note').value.trim();
-            const expire = document.getElementById('dm_share_expire').value;
-            const body = 'action=share&password_id=' + encodeURIComponent(pid) + '&email=' + encodeURIComponent(mail) + '&expire=' + encodeURIComponent(expire) + '&share_note=' + encodeURIComponent(note);
-            fetch(window.location.href, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res && res.success) {
-                    document.getElementById('dm_result').innerHTML = `<a class="share-link" href="${res.link}" target="_blank">${res.link}</a>`;
-                    showMsg(res.existing ? 'Already shared' : 'Link created!');
-                    const row = document.getElementById('r' + pid);
-                    if (row && !row.querySelector('.btn.revoke')) {
-                        const revokeBtn = document.createElement('button');
-                        revokeBtn.className = 'btn revoke';
-                        revokeBtn.textContent = '🚫';
-                        revokeBtn.onclick = function (ev) { ev.stopPropagation(); revokeShare(pid); };
-                        row.querySelector('td:last-child').insertBefore(revokeBtn, row.querySelector('a.edit'));
-                    }
-                    btn.innerHTML = '✔ Created';
-                } else {
-                    btn.innerHTML = '❌ Failed';
-                    showMsg('Share failed');
-                }
-                setTimeout(() => { btn.disabled = false; btn.innerHTML = 'Create Link'; }, 2000);
-            })
-            .catch(() => {
-                btn.innerHTML = '❌ Error';
-                showMsg('Share error');
-                setTimeout(() => { btn.disabled = false; btn.innerHTML = 'Create Link'; }, 2000);
-            });
+    function createShare(id) {
+        const note = document.getElementById('note').value;
+        const expire = document.getElementById('expire').value;
+        const body = `action=share&password_id=${id}&expire=${expire}&share_note=${encodeURIComponent(note)}`;
+        
+        fetch('', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                document.getElementById('result').innerHTML = `<div style="margin-top:10px;padding:10px;background:#f0f0f0;border-radius:5px"><a href="${res.link}" target="_blank">${res.link}</a></div>`;
+            }
         });
     }
 
@@ -546,4 +514,4 @@ while ($shared_row = $shared_result->fetch_assoc()) {
     }
     </script>
 </body>
-</html>
+</html

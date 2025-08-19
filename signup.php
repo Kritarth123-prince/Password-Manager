@@ -1,51 +1,156 @@
 <?php
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
 session_start();
 require 'db_config.php';
 $msg='';
+// if(isset($_POST['signup'])){
+//     $name=$_POST['name'];
+//     $email=$_POST['email'];
+
+//     $created_at = date("Y-m-d H:i:s");
+//     $encryption_key = date("YmdHis");
+//     $iv = substr(md5($encryption_key), 0, 16);
+//     $pass = openssl_encrypt($_POST['password'], 'AES-256-CBC', $encryption_key, 0, $iv);
+
+//     $phone=$_POST['phone'];
+//     $dob=$_POST['dob'];
+//     $profession=$_POST['profession'];
+//     $question=$_POST['question'];
+//     $answer=$_POST['answer'];
+//     $pin=$_POST['pin'];
+//     $age=date_diff(date_create($dob),date_create('today'))->y;
+
+//     if(!filter_var($email,FILTER_VALIDATE_EMAIL)){
+//         $msg="Enter valid email!";
+//     }elseif(strlen($phone)!=10||!ctype_digit($phone)){
+//         $msg="Phone must be 10 digits!";
+//     }elseif(strlen($_POST['password'])<8){
+//         $msg="Password must be 8+ characters!";
+//     }elseif($age<10){
+//         $msg="You must be 10+ years old!";
+//     }elseif(!isValidPin($pin,$phone)){
+//         $msg="PIN too simple or matches phone!";
+//     }else{
+//       $stmt = $db->prepare("INSERT INTO members (name,email,password,phone,dob,profession,question,answer,pin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
+//       $stmt->bind_param("ssssssssss", $name, $email, $pass, $phone, $dob, $profession, $question, $answer, $pin, $created_at);      
+//         if($stmt->execute()){
+//             $msg = "Account created! Redirecting to login...";
+//             echo "<script>
+//                 setTimeout(function(){
+//                     window.location.href = 'login.php?signup=success';
+//                 }, 2000);
+//             </script>";
+//         } else {
+//             $msg = "Signup failed!";
+//         }
+//     }
+// }
+
 if(isset($_POST['signup'])){
-$name=$_POST['name'];
-$email=$_POST['email'];
-$pass=password_hash($_POST['password'],PASSWORD_BCRYPT);
-$phone=$_POST['phone'];
-$dob=$_POST['dob'];
-$profession=$_POST['profession'];
-$question=$_POST['question'];
-$answer=$_POST['answer'];
-$pin=$_POST['pin'];
-$age=date_diff(date_create($dob),date_create('today'))->y;
-if(!filter_var($email,FILTER_VALIDATE_EMAIL)){
-$msg="Enter valid email!";
-}elseif(strlen($phone)!=10||!ctype_digit($phone)){
-$msg="Phone must be 10 digits!";
-}elseif(strlen($_POST['password'])<8){
-$msg="Password must be 8+ characters!";
-}elseif($age<10){
-$msg="You must be 10+ years old!";
-}elseif(!isValidPin($pin,$phone)){
-$msg="PIN too simple or matches phone!";
-}else{
-$stmt=$db->prepare("INSERT INTO members (name,email,password,phone,dob,profession,question,answer,pin) VALUES (?,?,?,?,?,?,?,?,?)");
-$stmt->bind_param("sssssssss",$name,$email,$pass,$phone,$dob,$profession,$question,$answer,$pin);
-if($stmt->execute()){
-    $msg = "Account created! Redirecting to login...";
-    echo "<script>
-        setTimeout(function(){
-            window.location.href = 'login.php?signup=success';
-        }, 2000);
-    </script>";
-} else {
-    $msg = "Signup failed!";
+  $name = $_POST['name'];
+  $email = strtolower(trim($_POST['email']));
+
+  $banned = ['test@gmail.com', 'admin@gmail.com', 'admin@password.manager.com'];
+
+  $banned_patterns = [
+    '/^test\d*@.*$/i',
+    '/^admin\d*@.*$/i',
+    '/^demo\d*@.*$/i',
+    '/^(admin|test|demo|support|info|contact|noreply|no-reply)@.*$/i'
+  ];
+
+  $is_banned = in_array($email, $banned);
+
+  foreach($banned_patterns as $pattern){
+    if(preg_match($pattern, $email)){
+      $is_banned = true;
+      break;
+    }
+  }
+
+  if($is_banned){
+      $msg = "This email is not allowed!";
+  } elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)){
+      $msg = "Enter valid email!";
+  } elseif($db->query("SELECT id FROM members WHERE email='". $db->real_escape_string($email) ."'")->num_rows){
+      $msg = "Email already registered!";
+  } else {
+      $created_at = date("Y-m-d H:i:s");
+      $encryption_key = date("YmdHis");
+      $iv = substr(md5($encryption_key), 0, 16);
+      $pass = openssl_encrypt($_POST['password'], 'AES-256-CBC', $encryption_key, 0, $iv);
+
+      $phone = $_POST['phone'];
+      $dob = $_POST['dob'];
+      $profession = $_POST['profession'];
+      $question = $_POST['question'];
+      $answer = $_POST['answer'];
+      $pin = $_POST['pin'];
+      $age = date_diff(date_create($dob), date_create('today'))->y;
+
+      $banned_phones = [
+        '1234567890',
+        '0123456789',
+        '9876543210',
+        '0987654321',
+        '9999999999',
+        '8888888888',
+        '7777777777',
+        '6666666666',
+        '0000000000',
+        '1111111111',
+    ];
+    
+    if (
+        strlen($phone) !== 10 ||
+        !ctype_digit($phone) ||
+        !preg_match('/^[6-9][0-9]{9}$/', $phone) ||
+        in_array($phone, $banned_phones) ||
+        preg_match('/^(\d)\1{9}$/', $phone) ||
+        preg_match('/^(\d{2})\1{4,}$/', $phone) ||
+        preg_match('/^(\d)\1{4}(\d)\2{4}$/', $phone)
+    ) 
+    {
+        $msg = "Enter a valid Indian mobile number!";
+    }
+    
+      elseif(strlen($phone) != 10 || !ctype_digit($phone)){
+          $msg = "Phone must be 10 digits!";
+      }
+      elseif(strlen($_POST['password']) < 8){
+          $msg = "Password must be 8+ characters!";
+      }
+      elseif($age < 10){
+          $msg = "You must be 10+ years old!";
+      }
+      elseif(!isValidPin($pin, $phone)){
+          $msg = "PIN too simple or matches phone!";
+      }
+      else {
+          $stmt = $db->prepare("INSERT INTO members (name,email,password,phone,dob,profession,question,answer,pin,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
+          $stmt->bind_param("ssssssssss", $name, $email, $pass, $phone, $dob, $profession, $question, $answer, $pin, $created_at);
+          if($stmt->execute()){
+              $msg = "Account created! Redirecting to login...";
+              echo "<script>
+                  setTimeout(function(){
+                      window.location.href = 'login.php?signup=success';
+                  }, 2000);
+              </script>";
+          } else {
+              $msg = "Signup failed!";
+          }
+      }
+  }
 }
 
-
-}
-}
 function isValidPin($pin,$phone){
-if(strlen($pin)!=6||!ctype_digit($pin))return false;
-$bad=['123456','654321','012345','543210','111111','222222','333333','444444','555555','666666','777777','888888','999999','000000'];
-if(in_array($pin,$bad))return false;
-if(strpos($phone,$pin)!==false||strpos($pin,$phone)!==false)return false;
-return true;
+    if(strlen($pin)!=6||!ctype_digit($pin))return false;
+    $bad=['123456','654321','012345','543210','111111','222222','333333','444444','555555','666666','777777','888888','999999','000000'];
+    if(in_array($pin,$bad))return false;
+    if(strpos($phone,$pin)!==false||strpos($pin,$phone)!==false)return false;
+    return true;
 }
 ?>
 <!DOCTYPE html>
@@ -88,7 +193,9 @@ input[type="date"]:not(.has-value)::before {
 <input type="password" name="password" placeholder="Password (8+ chars)" minlength="8" oninput="checkStrength(this.value)" required>
 <div id="strength" class="strength"></div>
 <div class="info">📝 Chill — this helps you log back in.</div>
-<input type="date" id="dob" name="dob" placeholder="Date of Birth" max="" required>
+<!-- <input type="date" id="dob" name="dob" placeholder="Date of Birth" max="" required> -->
+<label style="color:#fff;font-size:12px;margin:5px 0">Your “once upon a time”</label>
+<input type="date" id="dob" name="dob" required>
 <select name="profession" required>
 <option value="">Select Profession</option>
 <option value="Student">Student</option>
@@ -134,14 +241,14 @@ setTimeout(()=>n.classList.remove('show'),3000);
 }
 
 function checkAge(){
-let dob=new Date(document.getElementById('dob').value);
-let age=(new Date()-dob)/31557600000;
-if(age<10){
-showNotify('You must be 10+ years old!','error');
-document.getElementById('dob').value='';
-return false;
-}
-return true;
+  let dob=new Date(document.getElementById('dob').value);
+  let age=(new Date()-dob)/31557600000;
+  if(age<10){
+    showNotify('You must be 10+ years old!','error');
+    document.getElementById('dob').value='';
+    return false;
+  }
+  return true;
 }
 
 function validatePin(input){
@@ -181,6 +288,9 @@ document.getElementById('strength').innerHTML='<span class="'+c+'">'+t+'</span>'
 
 document.addEventListener("DOMContentLoaded", function () {
   const dob = document.getElementById("dob");
+  const today = new Date();
+  const tenYearsAgo = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate());
+  dob.max = tenYearsAgo.toISOString().split('T')[0];
 
   function toggleDatePlaceholder() {
     if (dob.value) {
@@ -193,9 +303,9 @@ document.addEventListener("DOMContentLoaded", function () {
   dob.addEventListener("change", toggleDatePlaceholder);
   dob.addEventListener("input", toggleDatePlaceholder);
 
-  // Run on load in case date is pre-filled
   toggleDatePlaceholder();
 });
+
 
 <?php if($msg): ?>
 showNotify('<?=$msg?>','<?=strpos($msg,"created")?"success":"error"?>');

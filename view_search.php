@@ -5,49 +5,43 @@ if (!isset($_SESSION['user_id'])) {
 }
 require 'db_config.php';
 
+function decryptPassword($encrypted_password, $created_at) {
+    $encryption_key = $created_at;
+    $iv = substr(md5($encryption_key), 0, 16);
+    return openssl_decrypt($encrypted_password, 'AES-256-CBC', $encryption_key, 0, $iv);
+}
+
 $user_id = $_SESSION['user_id'];
 $q = isset($_POST['q']) ? trim($_POST['q']) : '';
 $page = isset($_POST['page']) ? max(1, intval($_POST['page'])) : 1;
 $limit = 25;
 $offset = ($page - 1) * $limit;
 
-// Prepare search filter
-$where = "user_id = ?";
-$params = [$user_id];
-$types = "i";
+// Get all data first
+$data_sql = "SELECT * FROM data WHERE user_id = ? ORDER BY id DESC";
+$data_stmt = $db->prepare($data_sql);
+$data_stmt->bind_param("i", $user_id);
+$data_stmt->execute();
+$all_results = $data_stmt->get_result();
 
-if ($q !== '') {
-    $where .= " AND (website LIKE CONCAT('%', ?, '%')
-                OR username LIKE CONCAT('%', ?, '%')
-                OR email LIKE CONCAT('%', ?, '%')
-                OR password LIKE CONCAT('%', ?, '%')
-                OR notes LIKE CONCAT('%', ?, '%')
-                OR category LIKE CONCAT('%', ?, '%'))";
-    for ($i = 0; $i < 6; $i++) { // changed 5 to 6 because password added
-        $params[] = $q;
-        $types .= "s";
+// Filter results
+$matching_rows = [];
+while ($row = $all_results->fetch_assoc()) {
+    $decrypted = decryptPassword($row['password'], $row['created_at']);
+    
+    if ($q === '' || 
+        stripos($row['website'], $q) !== false ||
+        stripos($row['username'], $q) !== false ||
+        stripos($row['email'], $q) !== false ||
+        stripos($decrypted, $q) !== false ||
+        stripos($row['notes'], $q) !== false ||
+        stripos($row['category'], $q) !== false) {
+        $matching_rows[] = $row;
     }
 }
 
-
-// Get total results count
-$count_sql = "SELECT COUNT(*) AS total FROM data WHERE $where";
-$count_stmt = $db->prepare($count_sql);
-$count_stmt->bind_param($types, ...$params);
-$count_stmt->execute();
-$count_row = $count_stmt->get_result()->fetch_assoc();
-$total = (int)$count_row['total'];
-
-// Fetch paginated results
-$data_sql = "SELECT * FROM data WHERE $where ORDER BY id DESC LIMIT ? OFFSET ?";
-$params[] = $limit;
-$params[] = $offset;
-$types .= "ii";
-
-$data_stmt = $db->prepare($data_sql);
-$data_stmt->bind_param($types, ...$params);
-$data_stmt->execute();
-$res = $data_stmt->get_result();
+$total = count($matching_rows);
+$paginated = array_slice($matching_rows, $offset, $limit);
 
 // Get shared IDs
 $shared_ids = [];
@@ -59,17 +53,17 @@ while ($shared_row = $shared_result->fetch_assoc()) {
     $shared_ids[] = $shared_row['password_id'];
 }
 
-// Build table rows HTML
+// Build HTML
 $html = '';
-while ($row = $res->fetch_assoc()) {
+foreach ($paginated as $row) {
     $id = (int)$row['id'];
-    $website = htmlspecialchars($row['website']);
+    $website = htmlspecialchars($row['website'] ?? '');
     $url = strpos($row['website'], 'http') === 0 ? $row['website'] : 'https://' . $row['website'];
-    $username = htmlspecialchars($row['username']);
-    $email = htmlspecialchars($row['email']);
-    $password = htmlspecialchars($row['password'], ENT_QUOTES);
-    $category = htmlspecialchars($row['category']);
-    $notes = htmlspecialchars($row['notes']);
+    $username = htmlspecialchars($row['username'] ?? '');
+    $email = htmlspecialchars($row['email'] ?? '');
+    $password = htmlspecialchars(decryptPassword($row['password'], $row['created_at']), ENT_QUOTES);
+    $category = htmlspecialchars($row['category'] ?? '');
+    $notes = htmlspecialchars($row['notes'] ?? '');
     $is_shared = in_array($id, $shared_ids);
 
     $html .= "<tr id='r{$id}'>
@@ -109,3 +103,4 @@ while ($row = $res->fetch_assoc()) {
 
 header('Content-Type: application/json; charset=utf-8');
 echo json_encode(['data' => $html, 'total' => $total]);
+?>
