@@ -153,7 +153,7 @@ Notes: Personal account, 2FA enabled
 - **Validation**: Continuous session verification
 - **Cleanup**: Automatic expired session removal
 
-## Two-Factor Authentication (2FA) via Authenticator
+## 🔒 Two-Factor Authentication (2FA) via Authenticator
 
 Enhance your account security with 2FA! When enabled, you'll need a 6-digit code from your authenticator app (e.g., Google Authenticator, Authy) when logging in.
 
