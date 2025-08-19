@@ -177,6 +177,21 @@ This project uses PHP to generate a secret key and a QR code for your authentica
 
 *For detailed developer guidance, see [docs/developer_2fa_setup.md](docs/developer_2fa_setup.md).*
 
+## 🤖 Google reCAPTCHA Integration
+
+Protect your forms from spam and automated abuse with Google reCAPTCHA. When enabled, reCAPTCHA requires users to verify that they are human before the form is submitted.
+
+### How It Works
+
+- **Client Side:**  
+  The reCAPTCHA widget challenges the user to complete an action that proves they are human before form submission.
+
+- **Server Side:**  
+  Once the form is submitted, the server sends the response token to Google’s API for verification. If the token is valid, the form submission proceeds. If not, the process is halted.
+
+This simple integration helps ensure that only real users can submit your forms, adding an important layer of protection to your application.
+
+
 ## 🖥️ Compatibility
 
 ### Supported Platforms
