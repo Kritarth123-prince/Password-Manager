@@ -33,6 +33,8 @@ Most people use weak passwords like "123456" or reuse the same password everywhe
 - **Recovery**: Multiple backup methods (PIN, birthdate, security questions, profession)
 - **Sessions**: Auto-logout and secure session management
 - **Database**: All data encrypted at storage level
+- **2FA**: Authenticator-based two-factor authentication
+- **reCAPTCHA**: Protects against brute-force attacks
 
 ### 📊 Password Management
 - **Storage**: Website, Username, Email, Password, Category, Notes
@@ -140,6 +142,7 @@ Notes: Personal account, 2FA enabled
 - **Backup**: Date of birth verification
 - **Additional**: Security questions and profession details
 - **2FA Enabled**: 2FA enabled with the authenticator app
+- **Google reCaptcha**: Prevents brute-force attacks by verifying human users
 
 ### Encryption Specifications
 - **Algorithm**: SHA-256 with custom salt
