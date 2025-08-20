@@ -4,14 +4,14 @@
 
 *Secure • Share • Control*
 
-[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-kritarth.byethost18.com-blue?style=for-the-badge)](https://kritarth.byethost18.com/password_manager/login.php)
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-kritarth.byethost5.com-blue?style=for-the-badge)](https://kritarth.byethost5.com/password_manager/login.php)
 [![PHP](https://img.shields.io/badge/PHP-777BB4?style=for-the-badge&logo=php&logoColor=white)]()
 [![MySQL](https://img.shields.io/badge/MySQL-005C84?style=for-the-badge&logo=mysql&logoColor=white)]()
 [![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)]()
 
 **One master password. All accounts secure. Share safely. Control everything.**
 
-[🚀 Try Live Demo](https://kritarth.byethost18.com/password_manager/login.php) • [📖 Documentation](#-documentation) • [⚡ Quick Start](#-quick-start)
+[🚀 Try Live Demo](https://kritarth.byethost5.com/password_manager/login.php) • [📖 Documentation](#-documentation) • [⚡ Quick Start](#-quick-start)
 
 </div>
 
